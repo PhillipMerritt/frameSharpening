@@ -269,3 +269,6 @@ cython_debug/
 
 data/*
 !data/.gitkeep
+!data/model_checkpoints/.gitkeep
+
+.vscode/*
