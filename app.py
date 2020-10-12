@@ -1,6 +1,7 @@
 import os
 from flask import Flask, flash, request, redirect, url_for, send_from_directory
 from werkzeug.utils import secure_filename
+from sharpening import sharpen_video
 
 UPLOAD_FOLDER = 'data/'
 ALLOWED_EXTENSIONS = {'mp4', 'mpeg-4', 'mov', 'avi'}
@@ -28,8 +29,9 @@ def upload_file():
         if file and allowed_file(file.filename):
             filename = secure_filename(file.filename)
             file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+            sharp_filename = sharpen_video(app.config['UPLOAD_FOLDER'] + filename)
             return redirect(url_for('uploaded_file',
-                                    filename=filename))
+                                    filename=sharp_filename))
 
 @app.route('/uploads/<filename>')
 def uploaded_file(filename):
