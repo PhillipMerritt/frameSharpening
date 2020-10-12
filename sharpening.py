@@ -1,33 +1,33 @@
 import cv2
 import numpy as np
 from keras import models
+from tqdm import tqdm
 
 
-model = models.load_model("data/saved_models/encoder1_2.h5")
+model = models.load_model("data/saved_models/production_autoencoder.h5")
 patch_size = (100, 100)
 y_stride = 25
 x_stride = 25
-batch_size = 16 # number of images to get patches from
-patches_per_batch = 32 # total number of patches per batch of images
-max_patches = patches_per_batch // batch_size   # number of patches to get from each image in the batch
+patches_per_batch = 16 # total number of patches per batch of images
 
 # takes the filename of an uploaded video in the data folder
 # and return the name of the sharpened version also in the data folder
 def sharpen_video(filename):
     print("Getting frames")
-    frames = extract_frames('data/' + filename)
+    frames, fps = extract_frames('data/' + filename)
     frames = np.array(frames) / 255. # convert to np array and normalize rgb values to 0-1
 
     print("Sharpening each frame")
     print("ETA: {} minutes".format(frames.shape[0] * 4.0 / 60.0))
-    sharp_frames = [sharpen_image(model, img) for img in frames]
+    sharp_frames = [sharpen_image(model, img) for img in tqdm(frames)]
 
     print("Creating new video")
     video_name = "sharpened_"+filename
-    height, width = sharp_frames.shape[1:3]
-    video = cv2.VideoWriter("data/" + video_name, 0, 1, (width,height))
+    height, width = sharp_frames[0].shape[:2]
+    fourcc = cv2.VideoWriter_fourcc('m','p','4','v')
+    video = cv2.VideoWriter("data/" + video_name, fourcc, fps, (width,height))
 
-    for img in sharp_frames:
+    for img in tqdm(sharp_frames):
         video.write(img)
 
     cv2.destroyAllWindows()
@@ -46,16 +46,18 @@ def bgr_to_rgb(img):
 
 def extract_frames(filename):
   vidcap = cv2.VideoCapture(filename)
+  fps = vidcap.get(cv2.CAP_PROP_FPS)
   success, image = vidcap.read()
-
+  dim = (image.shape[1] * 2, image.shape[0] * 2)
   frames = []
 
   while success:
     bgr_to_rgb(image)
+    image = cv2.resize(image, dim)
     frames.append(image)
     success, image = vidcap.read()
   
-  return frames
+  return frames, fps
 
 def reconstruct_image(patches, ranges, weights):
   img = np.zeros(weights.shape)
@@ -83,10 +85,9 @@ def sharpen_image(model, img):
       ranges.append([y0, y, x0, x])
 
   patches = np.array(patches)
-  patch_batch_count = batch_size * max_patches
   preds = []
-  for i in range(0, patches.shape[0], patch_batch_count):
-    preds.append(np.array(model.predict(patches[i : i + patch_batch_count])))
+  for i in range(0, patches.shape[0], patches_per_batch):
+    preds.append(np.array(model.predict(patches[i : i + patches_per_batch])))
 
   preds = np.concatenate(preds)
 
