@@ -3,7 +3,11 @@
 ## create a virtual environment
 *make sure you are in the frameSharpening directory*
 
+## For Python 2 use
     python -m venv env
+
+## For Python 3 use
+    python3 -m venv env  
 
 ## activate it
 windows: 
