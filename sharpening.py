@@ -2,6 +2,8 @@ import cv2
 import numpy as np
 from keras import models
 from tqdm import tqdm
+import imageio
+import PIL.Image
 
 
 model = models.load_model("data/saved_models/production_autoencoder.h5")
@@ -10,9 +12,13 @@ y_stride = 25
 x_stride = 25
 patches_per_batch = 16 # total number of patches per batch of images
 
-# takes the filename of an uploaded video in the data folder
+video_extensions = {'mp4', 'mpeg-4', 'mov', 'avi'}
+
+# takes the filename of an uploaded video or image in the data folder
 # and return the name of the sharpened version also in the data folder
-def sharpen_video(filename):
+def sharpen_upload(filename):
+  # check if the file is a video
+  if filename.rsplit('.', 1)[1].lower() in video_extensions:
     print("Getting frames")
     frames, fps = extract_frames('data/' + filename)
     frames = np.array(frames) / 255. # convert to np array and normalize rgb values to 0-1
@@ -34,6 +40,16 @@ def sharpen_video(filename):
     video.release()
 
     return video_name
+  else: # else it's an image
+    img = PIL.Image.open('data/' + filename)
+    img = np.array(img.convert("RGB"))
+    img = img / 255.
+    img = sharpen_image(model, img)
+
+    img_name = 'sharpened_' + filename
+    imageio.imwrite('data/' + img_name)
+
+    return img_name
 
 def bgr_to_rgb(img):
   def helper(bgr):
@@ -65,6 +81,7 @@ def reconstruct_image(patches, ranges, weights):
     img[y0:y1,x0:x1] += patches[i]
   
   return np.array(np.clip((img / weights) * 255, 0.0, 255.0), dtype=np.uint8)
+
 
 def sharpen_image(model, img):
   patches = []
