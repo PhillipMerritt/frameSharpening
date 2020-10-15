@@ -11,7 +11,7 @@ model_4x = models.load_model("data/saved_models/production_autoencoder_4x.h5")
 patch_size = (100, 100)
 y_stride = 25
 x_stride = 25
-patches_per_batch = 16 # total number of patches per batch of images
+patches_per_batch = 64 # total number of patches per batch of images
 
 video_extensions = {'mp4', 'mpeg-4', 'mov', 'avi'}
 
@@ -68,12 +68,23 @@ def extract_frames(filename):
   vidcap = cv2.VideoCapture(filename)
   fps = vidcap.get(cv2.CAP_PROP_FPS)
   success, image = vidcap.read()
-  dim = (image.shape[1] * 2, image.shape[0] * 2)
+  
+  upscale = image.shape[1] < 1080
+  
+  if upscale:
+    if image.shape[1] < 480:
+      dim = (image.shape[1] * 4, image.shape[0] * 4)
+    else:
+      dim = (image.shape[1] * 2, image.shape[0] * 2)
+
   frames = []
 
   while success:
     bgr_to_rgb(image)
-    image = cv2.resize(image, dim)
+    if upscale:
+      image = cv2.resize(image, dim)
+    else:
+      pixelate_image(image, 50)
     frames.append(image)
     success, image = vidcap.read()
   
@@ -86,24 +97,21 @@ def reconstruct_image(patches, ranges, weights):
   
   return np.array(np.clip((img / weights) * 255, 0.0, 255.0), dtype=np.uint8)
 
+def pixelate_image(image, scale_percent = 40):
+      width = int(image.shape[1] * scale_percent / 100)
+      height = int(image.shape[0] * scale_percent / 100)
+      dim = (width, height)
 
-def pixalate_image(image, scale_percent = 50):
-  og_w = image.shape[1]
-  og_h = image.shape[0]
-  width = int(image.shape[1] * scale_percent / 100)
-  height = int(image.shape[0] * scale_percent / 100)
-  dim = (width, height)
+      small_image = cv2.resize(image, dim, interpolation = cv2.INTER_AREA)
+      
+      # scale back to original size
+      width = image.shape[1]
+      height = image.shape[0]
+      dim = (width, height)
 
-  small_image = cv2.resize(image, dim, interpolation = cv2.INTER_AREA)
-  
-  # scale back to original size
-  width = og_w
-  height = og_h
-  dim = (width, height)
+      low_res_image = cv2.resize(small_image, dim, interpolation = cv2.INTER_AREA)
 
-  low_res_image = cv2.resize(small_image, dim, interpolation = cv2.INTER_AREA)
-
-  return low_res_image
+      return low_res_image
 
 def sharpen_image(model, img):
   patches = []
@@ -124,10 +132,6 @@ def sharpen_image(model, img):
       ranges.append([y0, y, x0, x])
 
   patches = np.array(patches)
-  preds = []
-  for i in range(0, patches.shape[0], patches_per_batch):
-    preds.append(np.array(model.predict(patches[i : i + patches_per_batch])))
-
-  preds = np.concatenate(preds)
+  preds = np.array(model.predict(patches, batch_size = patches_per_batch))
 
   return reconstruct_image(preds, ranges, weights)
