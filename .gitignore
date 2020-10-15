@@ -274,4 +274,5 @@ data/*
 .vscode/*
 !data/saved_models
 data/saved_models/*
-!data/saved_models/production_autoencoder.h5
+!data/saved_models/production_autoencoder_2x.h5
+!data/saved_models/production_autoencoder_4x.h5

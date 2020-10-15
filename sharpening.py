@@ -6,7 +6,8 @@ import imageio
 import PIL.Image
 
 
-model = models.load_model("data/saved_models/production_autoencoder.h5")
+model_2x = models.load_model("data/saved_models/production_autoencoder_2x.h5")
+model_4x = models.load_model("data/saved_models/production_autoencoder_4x.h5")
 patch_size = (100, 100)
 y_stride = 25
 x_stride = 25
@@ -25,7 +26,7 @@ def sharpen_upload(filename):
 
     print("Sharpening each frame")
     print("ETA: {} minutes".format(frames.shape[0] * 4.0 / 60.0))
-    sharp_frames = [sharpen_image(model, img) for img in tqdm(frames)]
+    sharp_frames = [sharpen_image(model_2x, img) for img in tqdm(frames)]
 
     print("Creating new video")
     video_name = "sharpened_"+filename
@@ -41,13 +42,16 @@ def sharpen_upload(filename):
 
     return video_name
   else: # else it's an image
-    img = PIL.Image.open('data/' + filename)
-    img = np.array(img.convert("RGB"))
-    img = img / 255.
-    img = sharpen_image(model, img)
+    og_img = PIL.Image.open('data/' + filename)
+    og_img = np.array(og_img.convert("RGB"))
+    img = og_img / 255.
+    #img = pixalate_image(img)
+    img = sharpen_image(model_2x, img)
+
+    og_img = np.array(og_img, dtype=np.uint8)
 
     img_name = 'sharpened_' + filename
-    imageio.imwrite('data/' + img_name)
+    imageio.imwrite('data/' + img_name, img)
 
     return img_name
 
@@ -82,6 +86,24 @@ def reconstruct_image(patches, ranges, weights):
   
   return np.array(np.clip((img / weights) * 255, 0.0, 255.0), dtype=np.uint8)
 
+
+def pixalate_image(image, scale_percent = 50):
+  og_w = image.shape[1]
+  og_h = image.shape[0]
+  width = int(image.shape[1] * scale_percent / 100)
+  height = int(image.shape[0] * scale_percent / 100)
+  dim = (width, height)
+
+  small_image = cv2.resize(image, dim, interpolation = cv2.INTER_AREA)
+  
+  # scale back to original size
+  width = og_w
+  height = og_h
+  dim = (width, height)
+
+  low_res_image = cv2.resize(small_image, dim, interpolation = cv2.INTER_AREA)
+
+  return low_res_image
 
 def sharpen_image(model, img):
   patches = []
