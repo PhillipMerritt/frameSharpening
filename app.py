@@ -1,19 +1,28 @@
 import os
-from flask import Flask, flash, request, redirect, url_for, send_from_directory
+import requests
+from flask import Flask, flash, request, redirect, url_for, send_from_directory, jsonify
 from werkzeug.utils import secure_filename
+from flask_cors import CORS
 
 UPLOAD_FOLDER = 'data/'
 ALLOWED_EXTENSIONS = {'mp4', 'mpeg-4', 'mov', 'avi', 'jpeg', 'jpg', 'png'}
 
 app = Flask(__name__)
+app.secret_key = 'some secret key'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+app.config['CORS_HEADERS'] = 'Content-Type'
+cors = CORS(app)
 
 def allowed_file(filename):
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 @app.route('/', methods=['GET', 'POST'])
+#@cross_origin()
 def upload_file():
+    //response = jsonify(message="Frame Interpolation server is running")
+    # Enable Access-Control-Allow-Origin
+    response.headers.add("Access-Control-Allow-Origin", "*")
     if request.method == 'POST':
         # check if the post request has the file part
         if 'file' not in request.files:
